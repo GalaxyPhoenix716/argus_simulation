@@ -25,7 +25,7 @@ except ImportError:
     import websockets
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SERVER_WS_URL = "ws://localhost:8000/ws/sim"
+SERVER_WS_URL = "wss://argus-server-970096522851.asia-south1.run.app/ws/sim"
 
 # ── 25-channel frame ──────────────────────────────────────────────────────────
 class TelemetryFrame:
