@@ -26,6 +26,7 @@ except ImportError:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 SERVER_WS_URL = "wss://argus-server-970096522851.asia-south1.run.app/ws/sim"
+LOCAL_SERVER_WS_URL = "ws://127.0.0.1:8000/ws/sim"
 
 # ── 25-channel frame ──────────────────────────────────────────────────────────
 class TelemetryFrame:
@@ -78,6 +79,12 @@ class SimWebSocketClient:
         self._ws = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._connected = False
+        self._connection_urls = [SERVER_WS_URL, LOCAL_SERVER_WS_URL]
+        self._url_index = 0
+
+    @property
+    def target_url(self):
+        return self._connection_urls[self._url_index]
 
     @property
     def connected(self):
@@ -93,12 +100,13 @@ class SimWebSocketClient:
         self._loop.run_until_complete(self._connect_loop())
 
     async def _connect_loop(self):
-        """Reconnect indefinitely with exponential back-off."""
+        """Reconnect indefinitely, falling back to the local backend."""
         delay = 1
         while True:
+            target_url = self.target_url
             try:
-                print(f"[WS] Connecting to {SERVER_WS_URL}...")
-                async with websockets.connect(SERVER_WS_URL, ping_interval=20, ping_timeout=10) as ws:
+                print(f"[WS] Connecting to {target_url}...")
+                async with websockets.connect(target_url, ping_interval=20, ping_timeout=10) as ws:
                     self._ws = ws
                     self._connected = True
                     delay = 1  # reset back-off
@@ -114,7 +122,10 @@ class SimWebSocketClient:
             except Exception as e:
                 self._connected = False
                 self._ws = None
-                print(f"[WS] ❌ Disconnected: {e}. Retrying in {delay}s...")
+                failed_url = target_url
+                self._url_index = (self._url_index + 1) % len(self._connection_urls)
+                print(f"[WS] Disconnected from {failed_url}: {e}")
+                print(f"[WS] Falling back to {self.target_url}. Retrying in {delay}s...")
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, 30)
 
